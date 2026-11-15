@@ -1,0 +1,86 @@
+# ==============================================================================
+# Renderize SaaS - Git Ignore Configuration
+# ==============================================================================
+
+# Python Artifacts & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Node.js & Next.js
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+.pnpm-store/
+frontend/.pnpm-store/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+next-env.d.ts
+
+# Backend Dynamic & Ephemeral File Storage
+# (Preserve directory structure via .gitkeep while ignoring uploaded/rendered artifacts)
+backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
+backend/storage/renders/*
+!backend/storage/renders/.gitkeep
+backend/storage/models/*
+!backend/storage/models/.gitkeep
+backend/storage/reports/*
+!backend/storage/reports/.gitkeep
+
+# Environment & Local Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Operating System & IDE Artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# Temporary scratch images and logs
+*.log
+scratch/
+tmp/

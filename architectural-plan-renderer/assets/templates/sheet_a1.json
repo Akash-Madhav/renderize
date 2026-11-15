@@ -1,0 +1,58 @@
+{
+  "template_name": "A1_MASTER_PRESENTATION_BOARD",
+  "paper_standard": "ISO_216_A1",
+  "dimensions_mm": [841.0, 594.0],
+  "dpi": 300,
+  "dimensions_px": [9933, 7016],
+  "background_color": "#F7FBFE",
+  "margins_px": 80,
+  "zones": {
+    "title_block": {
+      "text": "DIRECTOR",
+      "font_family": "serif",
+      "font_size_px": 160,
+      "color": "#24282B",
+      "bbox": [4566, 180, 5366, 340]
+    },
+    "north_arrow": {
+      "bbox": [9433, 200, 9533, 300],
+      "color": "#24282B"
+    },
+    "unit_plans_row": {
+      "y_offset_px": 500,
+      "max_width_px": 3000,
+      "max_height_px": 2300,
+      "slots": [
+        {"id": "ground_floor", "x_px": 200, "label": "UNIT PLAN - GROUND FLOOR"},
+        {"id": "first_floor", "x_px": 3450, "label": "UNIT PLAN - FIRST FLOOR"},
+        {"id": "second_floor", "x_px": 6700, "label": "UNIT PLAN - SECOND FLOOR"}
+      ]
+    },
+    "section_view": {
+      "bbox": [200, 3100, 5200, 6216],
+      "label": "SECTION AA'"
+    },
+    "colour_palette": {
+      "x_px": 6500,
+      "y_px": 3100,
+      "swatches": [
+        {"name": "Oak Wood", "hex": "#8B5A2B"},
+        {"name": "Italian Marble", "hex": "#E0E5DF"},
+        {"name": "Sage Quartzite", "hex": "#8B9E7A"},
+        {"name": "Charcoal Slate", "hex": "#363C40"},
+        {"name": "Terrazzo", "hex": "#D0C2B2"},
+        {"name": "Basalt Paver", "hex": "#B8BCB5"}
+      ]
+    },
+    "project_metadata": {
+      "y_px": 6316,
+      "fields": [
+        "TOTAL FLOOR AREA : 1050 SQ.M",
+        "UNIT AREA : 350 SQ.M",
+        "NO. OF BLOCKS : 1",
+        "NO. OF FLOORS : 3",
+        "UNIT TYPOLOGY : 4 BHK + LIBRARY + OFFICE + GUEST"
+      ]
+    }
+  }
+}
