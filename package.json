@@ -1,0 +1,24 @@
+{
+  "name": "renderize",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Renderize - Precision AI Architectural Plan Rendering SaaS (Unified Monorepo)",
+  "scripts": {
+    "dev:frontend": "cd frontend && pnpm run dev",
+    "dev:backend": "python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload",
+    "dev": "cd frontend && pnpm run dev",
+    "build": "cd frontend && pnpm run build",
+    "start": "cd frontend && pnpm run start",
+    "test": "pytest tests/ -v",
+    "install:all": "pip install -r requirements.txt && cd frontend && pnpm install"
+  },
+  "keywords": [
+    "architectural-rendering",
+    "cad-to-presentation",
+    "fastapi",
+    "nextjs",
+    "photorealistic-plans"
+  ],
+  "author": "Renderize Team",
+  "license": "MIT"
+}

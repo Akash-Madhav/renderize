@@ -135,6 +135,7 @@ renderize/
 │   ├── test_automated_pipeline.py  # 5-stage isolated pipeline test
 │   └── test_multifloor_pipeline.py # End-to-end multi-floor orchestration test
 │
+├── package.json                    # Root unified workspace scripts (Monorepo)
 ├── pytest.ini                      # Pytest configuration
 ├── requirements.txt                # Python backend dependencies
 └── README.md                       # Master Documentation
@@ -142,21 +143,41 @@ renderize/
 
 ---
 
-## 🚀 Quickstart Guide
+## 🚀 Quickstart Guide (Unified Monorepo)
+
+Renderize is organized as a unified full-stack monorepo containing both the FastAPI backend and Next.js frontend in a single repository.
 
 ### Prerequisites
-- **Python**: 3.10+ (tested up to Python 3.14)
+- **Python**: 3.10+ (tested with Python 3.14)
 - **Node.js**: 18+ (tested with Node 20 / 22)
 - **Package Manager**: `pnpm` (or `npm`)
 
 ---
 
-### Step 1: Backend Setup
+### Step 1: Install All Dependencies (Single Command)
 
-1. Open a terminal in the project root:
-   ```bash
-   cd renderize
-   ```
+From the project root `renderize/`:
+```bash
+# Installs backend Python dependencies & frontend Node packages
+pnpm run install:all
+```
+*(Or manually: `pip install -r requirements.txt` and `cd frontend && pnpm install`)*
+
+---
+
+### Step 2: Start Backend & Frontend
+
+In Terminal 1 (Start FastAPI Backend):
+```bash
+pnpm run dev:backend
+```
+*API live at `http://127.0.0.1:8000` (interactive OpenAPI documentation at `http://127.0.0.1:8000/docs`).*
+
+In Terminal 2 (Start Next.js Frontend):
+```bash
+pnpm run dev
+```
+*Presentation Studio live at `http://localhost:3000`.*
 
 2. Create and activate a Python virtual environment (optional but recommended):
    ```bash
