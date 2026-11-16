@@ -99,12 +99,27 @@ def classify_rooms_symbolically(model_data: Dict[str, Any]) -> PlanSemanticInfer
             RecommendedFlooring.STONE_MARBLE_ITALIAN,
             0.94,
             "Entry transition vestibule connecting exterior portico to interior"
+        ),
+        "GARDEN": (
+            SemanticRoomType.COURTYARD_GARDEN,
+            "LANDSCAPE_PRIVATE_GARDEN",
+            RecommendedFlooring.LANDSCAPE_GARDEN_LAWN,
+            0.98,
+            "Private landscape garden / manicured lawn with natural turf specification"
+        ),
+        "COURTYARD": (
+            SemanticRoomType.COURTYARD_GARDEN,
+            "CENTRAL_LANDSCAPE_COURTYARD",
+            RecommendedFlooring.LANDSCAPE_GARDEN_LAWN,
+            0.97,
+            "Internal landscape light court connecting interior living zones"
         )
     }
 
     bed_count = 0
     has_office = False
     has_terrace = False
+    has_garden = False
 
     if detected_labels:
         for idx, lbl in enumerate(detected_labels):
@@ -116,6 +131,8 @@ def classify_rooms_symbolically(model_data: Dict[str, Any]) -> PlanSemanticInfer
                     has_office = True
                 elif lbl in ["TERRACE", "BALCONY"]:
                     has_terrace = True
+                elif lbl in ["GARDEN", "COURTYARD"]:
+                    has_garden = True
 
                 rooms_classified.append(RoomSemanticAnalysis(
                     room_id=f"room_{lbl.lower()}_{idx + 1}",
@@ -188,6 +205,8 @@ def classify_rooms_symbolically(model_data: Dict[str, Any]) -> PlanSemanticInfer
         extras.append("OFFICE")
     if has_terrace:
         extras.append("TERRACE")
+    if has_garden:
+        extras.append("PRIVATE GARDEN")
     if has_stairs:
         extras.append("MULTI-LEVEL")
 

@@ -49,6 +49,12 @@ MATERIAL_SPECS = {
         "texture_file": "terrazzo_warm.png",
         "swatch_color": "#D0C2B2",
         "keywords": ["STAIR", "LIFT", "CORRIDOR", "PASSAGE", "LOBBY", "CORE"]
+    },
+    "garden": {
+        "name": "Landscape Lawn & Garden",
+        "texture_file": "grass_garden.png",
+        "swatch_color": "#557A46",
+        "keywords": ["GARDEN", "LAWN", "LANDSCAPE", "YARD", "COURTYARD", "GREEN", "BACKYARD", "FORECOURT", "PLANTATION"]
     }
 }
 

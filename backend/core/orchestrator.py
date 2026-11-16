@@ -99,18 +99,20 @@ store = ProjectStore()
 def identify_floor_label(filename: str) -> str:
     """Deduces architectural floor level from file naming conventions."""
     name = filename.upper()
-    if any(k in name for k in ["PLINTH", "GROUND", "LEVEL 0", "GF", "PL PLAN", "_PL_", "-PL-", " PL "]):
+    if any(k in name for k in ["ROOF", "TERRACE", "CLUSTER"]):
+        return "Roof & Cluster Plan"
+    elif any(k in name for k in ["PLINTH", "GROUND", "LEVEL 0", "GF", "PL PLAN", "_PL_", "-PL-", " PL "]):
         return "Ground Floor (Plinth Plan)"
     elif any(k in name for k in ["FIRST", "LEVEL 1", "1ST", "FF", "FL PLAN", "_FL_", "-FL-", " FL "]):
         return "First Floor Plan"
     elif any(k in name for k in ["SECOND", "LEVEL 2", "2ND", "SF", "SL PLAN", "_SL_", "-SL-", " SL "]):
         return "Second Floor Plan"
-    elif any(k in name for k in ["ROOF", "TERRACE", "CLUSTER"]):
-        return "Roof & Cluster Plan"
     elif any(k in name for k in ["SECTION", "SEC"]):
         return "Building Section"
     elif any(k in name for k in ["ELEVATION", "ELEV"]):
         return "Building Elevation"
+    elif any(k in name for k in ["UNIT", "ASSC", "PROFESSOR"]):
+        return "Architectural Floor Plan"
     return "Architectural Floor Plan"
 
 
@@ -118,15 +120,19 @@ def sort_floor_paths(paths: List[str]) -> List[str]:
     """Sorts floor paths in structural bottom-up architectural order."""
     def rank(p: str):
         fn = os.path.basename(p).upper()
-        if any(k in fn for k in ["PLINTH", "GROUND", "PL PLAN", " PL "]):
+        if any(k in fn for k in ["PLINTH", "GROUND", "LEVEL 0", "GF", "PL PLAN", "_PL_", "-PL-", " PL "]):
             return 0
-        if any(k in fn for k in ["FIRST", "1ST", "FL PLAN", " FL "]):
+        if any(k in fn for k in ["FIRST", "LEVEL 1", "1ST", "FF", "FL PLAN", "_FL_", "-FL-", " FL "]):
             return 1
-        if any(k in fn for k in ["SECOND", "2ND", "SL PLAN", " SL "]):
+        if any(k in fn for k in ["SECOND", "LEVEL 2", "2ND", "SF", "SL PLAN", "_SL_", "-SL-", " SL "]):
             return 2
-        if any(k in fn for k in ["ROOF", "TERRACE"]):
+        if any(k in fn for k in ["THIRD", "LEVEL 3", "3RD"]):
             return 3
-        return 4
+        if any(k in fn for k in ["UNIT", "ASSC", "PROFESSOR", "RESIDENCE"]):
+            return 0  # Primary habitable unit plan
+        if any(k in fn for k in ["ROOF", "TERRACE", "CLUSTER"]):
+            return 99  # Uppermost level
+        return 10
     return sorted(paths, key=rank)
 
 
@@ -270,6 +276,7 @@ def execute_rendering_pipeline(project_id: str, uploaded_pdf_input: Union[str, L
         bed_count = sum(1 for r in all_rooms if r.semantic_type.value == "BEDROOM")
         has_office = any(r.semantic_type.value == "OFFICE_STUDY" for r in all_rooms)
         has_terrace = any(r.semantic_type.value == "BALCONY_TERRACE" for r in all_rooms)
+        has_garden = any(r.semantic_type.value == "COURTYARD_GARDEN" for r in all_rooms)
 
         bhk_str = f"{max(1, bed_count)} BHK"
         features = []
@@ -277,6 +284,8 @@ def execute_rendering_pipeline(project_id: str, uploaded_pdf_input: Union[str, L
             features.append("STUDY")
         if has_terrace:
             features.append("TERRACE")
+        if has_garden:
+            features.append("PRIVATE GARDEN")
         dynamic_typology = f"{bhk_str} ARCHITECTURAL RESIDENCE" + (f" + {' + '.join(features)}" if features else "")
 
         # Update aggregated project attributes

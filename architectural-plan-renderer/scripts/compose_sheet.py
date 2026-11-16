@@ -34,7 +34,6 @@ def compose_presentation_sheet(
     Supports arbitrary N floor plans (1, 2, 3, 4, 5+ floors) with dynamic grid scaling
     and fully dynamic section, elevation, materials, and metadata blocks.
     """
-    # Normalize input
     if isinstance(plans_input, list):
         plans_list = plans_input
         pdf_out = first_plan_path if output_pdf_path is None else output_pdf_path
@@ -48,7 +47,6 @@ def compose_presentation_sheet(
         pdf_out = output_pdf_path
         png_out = output_png_path
 
-    # Format plans as [(label, path), ...]
     formatted_plans = []
     for idx, item in enumerate(plans_list):
         if isinstance(item, (tuple, list)):
@@ -56,14 +54,16 @@ def compose_presentation_sheet(
         else:
             pth = item
             fn = os.path.basename(pth).upper()
-            if any(k in fn for k in ["PLINTH", "GROUND", "PL PLAN", " PL "]):
+            if any(k in fn for k in ["ROOF", "TERRACE", "CLUSTER"]):
+                lbl = "ROOF & CLUSTER PLAN"
+            elif any(k in fn for k in ["PLINTH", "GROUND", "PL PLAN", " PL "]):
                 lbl = "UNIT PLAN - GROUND FLOOR"
             elif any(k in fn for k in ["FIRST", "1ST", "FL PLAN", " FL "]):
                 lbl = "UNIT PLAN - FIRST FLOOR"
             elif any(k in fn for k in ["SECOND", "2ND", "SL PLAN", " SL "]):
                 lbl = "UNIT PLAN - SECOND FLOOR"
-            elif any(k in fn for k in ["ROOF", "TERRACE"]):
-                lbl = "ROOF & CLUSTER PLAN"
+            elif any(k in fn for k in ["UNIT", "ASSC", "PROFESSOR", "RESIDENCE"]):
+                lbl = "ARCHITECTURAL FLOOR PLAN"
             else:
                 lbl = f"UNIT PLAN - LEVEL {idx + 1}"
         if os.path.exists(pth):
@@ -75,9 +75,13 @@ def compose_presentation_sheet(
     board = Image.new("RGB", sheet_size, "#F7FBFE")
     draw = ImageDraw.Draw(board)
 
-    # Sheet Border
-    margin = 80
-    draw.rectangle([margin, margin, sheet_size[0] - margin, sheet_size[1] - margin], outline="#24282B", width=4)
+    # Double Sheet Border (Architectural border with outer thin line and inner medium line)
+    margin_outer = 60
+    margin_inner = 80
+    draw.rectangle([margin_outer, margin_outer, sheet_size[0] - margin_outer, sheet_size[1] - margin_outer],
+                   outline="#70757A", width=1)
+    draw.rectangle([margin_inner, margin_inner, sheet_size[0] - margin_inner, sheet_size[1] - margin_inner],
+                   outline="#24282B", width=4)
 
     # Architectural Typography
     try:
@@ -91,7 +95,7 @@ def compose_presentation_sheet(
         font_info = ImageFont.load_default()
         font_dim = ImageFont.load_default()
 
-    # 1. Master Title
+    # 1. Master Title (Centered with subtle tracking)
     draw.text((sheet_size[0] // 2 - 450, 180), project_title.upper(), fill="#24282B", font=font_title)
 
     # North arrow badge at top right
@@ -116,18 +120,46 @@ def compose_presentation_sheet(
         plan_h = 2400
 
     elif num_plans == 2:
-        # Dual Plan Layout
-        col_w = 4500
-        plan_h = 2300
-        for i, (lbl, path) in enumerate(formatted_plans):
-            x_pos = 200 + i * 4900
-            img = Image.open(path).convert("RGB")
-            gray = ImageOps.invert(img.convert("L"))
-            bbox = gray.getbbox()
-            img_cropped = img.crop(bbox) if bbox else img
-            img_cropped.thumbnail((col_w, plan_h), Image.Resampling.LANCZOS)
-            board.paste(img_cropped, (x_pos, y_pos + 120))
-            draw.text((x_pos + 400, y_pos + 40), lbl, fill="#24282B", font=font_sub)
+        # Check if one is a roof/cluster plan and the other is a unit/floor plan
+        is_roof_0 = any(k in formatted_plans[0][0].upper() for k in ["ROOF", "CLUSTER", "TERRACE"])
+        is_roof_1 = any(k in formatted_plans[1][0].upper() for k in ["ROOF", "CLUSTER", "TERRACE"])
+
+        if is_roof_0 or is_roof_1:
+            roof_item = formatted_plans[0] if is_roof_0 else formatted_plans[1]
+            unit_item = formatted_plans[1] if is_roof_0 else formatted_plans[0]
+
+            # 1. Place Roof & Cluster Plan at top-left (Scale 1:100 proportional)
+            lbl_r, path_r = roof_item
+            img_r = Image.open(path_r).convert("RGB")
+            gray_r = ImageOps.invert(img_r.convert("L"))
+            bbox_r = gray_r.getbbox()
+            cropped_r = img_r.crop(bbox_r) if bbox_r else img_r
+            cropped_r.thumbnail((2600, 2200), Image.Resampling.LANCZOS)
+            board.paste(cropped_r, (250, y_pos + 120))
+            draw.text((350, y_pos + 40), lbl_r, fill="#24282B", font=font_sub)
+
+            # 2. Place Main Architectural Unit Plan prominently in center/right
+            lbl_u, path_u = unit_item
+            img_u = Image.open(path_u).convert("RGB")
+            gray_u = ImageOps.invert(img_u.convert("L"))
+            bbox_u = gray_u.getbbox()
+            cropped_u = img_u.crop(bbox_u) if bbox_u else img_u
+            cropped_u.thumbnail((5400, 2400), Image.Resampling.LANCZOS)
+            board.paste(cropped_u, (3400, y_pos + 120))
+            draw.text((4400, y_pos + 40), lbl_u, fill="#24282B", font=font_sub)
+            plan_h = 2400
+        else:
+            col_w = 4500
+            plan_h = 2300
+            for i, (lbl, path) in enumerate(formatted_plans):
+                x_pos = 200 + i * 4900
+                img = Image.open(path).convert("RGB")
+                gray = ImageOps.invert(img.convert("L"))
+                bbox = gray.getbbox()
+                img_cropped = img.crop(bbox) if bbox else img
+                img_cropped.thumbnail((col_w, plan_h), Image.Resampling.LANCZOS)
+                board.paste(img_cropped, (x_pos, y_pos + 120))
+                draw.text((x_pos + 400, y_pos + 40), lbl, fill="#24282B", font=font_sub)
 
     elif num_plans == 3:
         # Tri-Column Layout (Matching Director Reference)
@@ -167,7 +199,6 @@ def compose_presentation_sheet(
     if section_image_path and os.path.exists(section_image_path):
         sec_img = Image.open(section_image_path).convert("RGB")
         sec_img.thumbnail((target_w, target_h), Image.Resampling.LANCZOS)
-        # Center inside target box
         sec_x = section_box[0] + (target_w - sec_img.width) // 2
         sec_y = section_box[1] + (target_h - sec_img.height) // 2
         board.paste(sec_img, (sec_x, sec_y))
@@ -198,7 +229,6 @@ def compose_presentation_sheet(
     # 5. Dynamic Colour Palette Swatches (Right side)
     draw.text((8500, y_pos + plan_h + 100), "COLOUR PALETTE", fill="#24282B", font=font_sub)
 
-    # Use only materials actually applied during rendering
     swatches_to_display = []
     if applied_materials:
         seen = set()
@@ -209,15 +239,15 @@ def compose_presentation_sheet(
                 seen.add(name)
                 swatches_to_display.append((color, name))
 
-    # Fallback to standard palette if no materials specified
     if not swatches_to_display:
         swatches_to_display = [
-            ("#8B5A2B", "Oak Wood"),
+            ("#8B5A2B", "French Oak Parquet"),
             ("#E0E5DF", "Italian Marble"),
             ("#8B9E7A", "Sage Quartzite"),
             ("#363C40", "Charcoal Slate"),
-            ("#D0C2B2", "Terrazzo"),
-            ("#B8BCB5", "Basalt Paver")
+            ("#D0C2B2", "Terrazzo Venato"),
+            ("#B8BCB5", "Basalt Paver"),
+            ("#557A46", "Landscape Garden")
         ]
 
     sw_y = y_pos + plan_h + 220
@@ -228,7 +258,7 @@ def compose_presentation_sheet(
         draw.text((cx - 10, cy + 175), name, fill="#24282B", font=font_info)
 
     # 6. Dynamic Project Metadata Title Block (Bottom)
-    draw.line([margin, sheet_size[1] - 700, sheet_size[0] - margin, sheet_size[1] - 700], fill="#24282B", width=2)
+    draw.line([margin_inner, sheet_size[1] - 700, sheet_size[0] - margin_inner, sheet_size[1] - 700], fill="#24282B", width=2)
 
     meta = metadata or {}
     total_area = meta.get("total_floor_area", 320 * max(1, num_plans))

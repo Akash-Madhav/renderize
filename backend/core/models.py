@@ -30,6 +30,7 @@ class SemanticRoomType(str, Enum):
     CIRCULATION = "CIRCULATION"
     BALCONY_TERRACE = "BALCONY_TERRACE"
     DOUBLE_HEIGHT_VOID = "DOUBLE_HEIGHT_VOID"
+    COURTYARD_GARDEN = "COURTYARD_GARDEN"
 
 
 class RecommendedFlooring(str, Enum):
@@ -40,6 +41,7 @@ class RecommendedFlooring(str, Enum):
     TERRAZZO_WARM = "TERRAZZO_WARM"
     PAVER_EXTERIOR = "PAVER_EXTERIOR"
     OPEN_AIR = "OPEN_AIR"
+    LANDSCAPE_GARDEN_LAWN = "LANDSCAPE_GARDEN_LAWN"
 
 
 class RoomSemanticAnalysis(BaseModel):
