@@ -100,7 +100,8 @@ def create_sanitary_fixtures(output_path, size=(120, 180)):
 
 
 def main():
-    furn_dir = r"c:\Users\akash\renderize\architectural-plan-renderer\assets\furniture"
+    furn_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "furniture"))
+    os.makedirs(furn_dir, exist_ok=True)
     print("[+] Generating plan-view furniture sprite library...")
     create_bed_double(os.path.join(furn_dir, "bed_double.png"))
     create_sofa_sectional(os.path.join(furn_dir, "sofa_sectional.png"))

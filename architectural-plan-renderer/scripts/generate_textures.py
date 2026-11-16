@@ -147,7 +147,8 @@ def create_exterior_paver(output_path, size=512):
 
 
 def main():
-    tex_dir = r"c:\Users\akash\renderize\architectural-plan-renderer\assets\textures"
+    tex_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "textures"))
+    os.makedirs(tex_dir, exist_ok=True)
     print("[+] Generating master texture library...")
     create_herringbone_wood(os.path.join(tex_dir, "wood_herringbone.png"))
     create_marble_texture(os.path.join(tex_dir, "marble_italian.png"))

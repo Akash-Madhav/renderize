@@ -7,7 +7,7 @@ Directly binds architectural-plan-renderer/scripts/render_plan.py
 import sys
 import os
 from pathlib import Path
-from backend.config import SKILL_SCRIPTS_DIR
+from backend.config import SKILL_SCRIPTS_DIR, SKILL_TEXTURES_DIR
 
 sys.path.insert(0, str(SKILL_SCRIPTS_DIR))
 
@@ -23,8 +23,16 @@ except ImportError:
 
 
 def run_render(pdf_path: str, output_png_path: str, dpi: int = 300):
-    """Renders a vector floor plan PDF into high-res presentation graphic with realistic materials."""
-    res = render_architectural_plan(pdf_path, output_png_path, dpi=dpi)
+    """
+    Renders a vector floor plan PDF into high-res presentation graphic with realistic materials.
+    Returns:
+        (output_png_path, crop_rect, applied_materials, env_bounds)
+    """
+    res = render_architectural_plan(pdf_path, output_png_path, dpi=dpi, textures_dir=str(SKILL_TEXTURES_DIR))
     if isinstance(res, tuple):
-        return res[0], res[1]
-    return res, None
+        out_path = res[0]
+        crop_rect = res[1] if len(res) > 1 else None
+        materials = res[2] if len(res) > 2 else []
+        bounds = res[3] if len(res) > 3 else None
+        return out_path, crop_rect, materials, bounds
+    return res, None, [], None

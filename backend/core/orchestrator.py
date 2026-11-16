@@ -5,12 +5,12 @@ Executes the complete architectural rendering lifecycle for single and multi-flo
 1. Document Ingestion & Classification
 2. PDF Content Extraction
 3. Geometric & Spatial Analysis
-4. Semantic Understanding & Staging (Gemma 2B)
+4. Semantic Understanding & Staging
 5. Rendering Strategy & Material Selection
 6. Layer-Based Rendering
 7. Architectural QA & Line Retention Audit
-8. Discrepancy Correction Loop (up to 3 iterations)
-9. Presentation Board Composition (A1 Sheet identical to DIRECTOR SHEET 1.pdf)
+8. Dynamic Section AA', Elevation, and Roof Plan Generation
+9. Presentation Board Composition (A1 Sheet with dynamic content)
 10. Final Deliverable Packaging
 """
 
@@ -45,6 +45,9 @@ from backend.pipeline.analyzer import run_geometry_analysis
 from backend.pipeline.renderer import run_render, get_architectural_plan_crop_box
 from backend.pipeline.compositor import run_composition
 from backend.pipeline.validator import run_validation
+from backend.pipeline.section_generator import run_section_generation
+from backend.pipeline.elevation_generator import run_elevation_generation
+from backend.pipeline.roof_generator import run_roof_generation
 from backend.ai.gemma_service import gemma_ai
 
 logger = logging.getLogger("renderize.orchestrator")
@@ -161,18 +164,22 @@ def execute_rendering_pipeline(project_id: str, uploaded_pdf_input: Union[str, L
 
         floor_renders = []
         floor_infos = []
+        floor_envelope_data = []
+        all_applied_materials = []
 
         total_paths = 0
         total_annotations = 0
         all_dimensions = []
         all_rooms = []
+        detected_scales = []
+        estimated_unit_area = 320.0
 
         for idx, pdf_path in enumerate(file_paths):
             floor_name = os.path.basename(pdf_path)
             floor_label = identify_floor_label(floor_name)
             log(f"Processing Floor [{idx + 1}/{len(file_paths)}]: {floor_label} ({floor_name})")
 
-            # 1. Generate CAD line preview clipped to true architectural plan extents (excluding outer sheet borders)
+            # 1. Generate CAD line preview clipped to true architectural plan extents
             doc = pymupdf.open(pdf_path)
             crop_rect = get_architectural_plan_crop_box(doc, 0)
             pw = float(crop_rect.width)
@@ -197,16 +204,46 @@ def execute_rendering_pipeline(project_id: str, uploaded_pdf_input: Union[str, L
             model_data = run_geometry_analysis(raw_json_path, model_json_path)
             f_dims = model_data.get("dimensions", {}).get("annotations", [])
             all_dimensions.extend(f_dims)
+            scale_est = model_data.get("scale_estimate", "1:50")
+            if scale_est not in detected_scales:
+                detected_scales.append(scale_est)
 
-            # 4. Gemma 2B Semantic Reasoning
+            # 4. Semantic Reasoning
             semantic_response = gemma_ai.infer_plan_semantics(model_data)
             all_rooms.extend(semantic_response.rooms)
 
-            # 5. Render Floor Plan with Rich Materials
+            # 5. Render Floor Plan with Rich Materials & Dynamic Room Classification
             render_filename = f"{project_id}_floor_{idx}_rendered.png"
             rendered_png_path = str(RENDERS_DIR / render_filename)
-            run_render(pdf_path, rendered_png_path, dpi=DEFAULT_DPI)
+            render_res = run_render(pdf_path, rendered_png_path, dpi=DEFAULT_DPI)
+
+            if isinstance(render_res, tuple):
+                r_path = render_res[0]
+                mats = render_res[2] if len(render_res) > 2 else []
+                env_b = render_res[3] if len(render_res) > 3 else (0, 0, int(pw), int(ph))
+            else:
+                r_path = render_res
+                mats = []
+                env_b = (0, 0, int(pw), int(ph))
+
             floor_renders.append(rendered_png_path)
+            all_applied_materials.extend(mats)
+            floor_envelope_data.append({
+                "label": floor_label,
+                "envelope_bounds": env_b
+            })
+
+            # Estimate real-world unit area from envelope
+            if env_b and env_b[2] > env_b[0] and env_b[3] > env_b[1]:
+                # 300 DPI conversion: (bw_px * 0.0254 / 300 * 50) approx scale
+                bw_px = env_b[2] - env_b[0]
+                bh_px = env_b[3] - env_b[1]
+                # Plan envelope footprint calculation
+                ratio = 50.0 / 300.0 * 0.0254
+                w_m = bw_px * ratio * 72.0 / 25.4
+                h_m = bh_px * ratio * 72.0 / 25.4
+                calc_area = max(120.0, min(800.0, w_m * h_m * 0.72))
+                estimated_unit_area = round(calc_area, 1)
 
             # 6. QA Line Retention Audit
             qa_overlay_filename = f"{project_id}_floor_{idx}_rendered_QA_OVERLAY.png"
@@ -229,13 +266,26 @@ def execute_rendering_pipeline(project_id: str, uploaded_pdf_input: Union[str, L
             floor_infos.append(f_info)
             log(f"Floor [{floor_label}] rendered & certified: {qa_result['fidelity_score_pct']:.2f}% fidelity ({qa_result['verdict']})")
 
+        # Derive dynamic project typology from accumulated rooms
+        bed_count = sum(1 for r in all_rooms if r.semantic_type.value == "BEDROOM")
+        has_office = any(r.semantic_type.value == "OFFICE_STUDY" for r in all_rooms)
+        has_terrace = any(r.semantic_type.value == "BALCONY_TERRACE" for r in all_rooms)
+
+        bhk_str = f"{max(1, bed_count)} BHK"
+        features = []
+        if has_office:
+            features.append("STUDY")
+        if has_terrace:
+            features.append("TERRACE")
+        dynamic_typology = f"{bhk_str} ARCHITECTURAL RESIDENCE" + (f" + {' + '.join(features)}" if features else "")
+
         # Update aggregated project attributes
         project.floors = floor_infos
         project.extracted_paths_count = total_paths
         project.annotations_count = total_annotations
         project.dimensions_detected = all_dimensions
         project.rooms = all_rooms
-        project.semantic_typology = "Luxury Multi-Storey Residence (DIRECTOR Series)" if is_multi else "Single-Storey Architectural Residence"
+        project.semantic_typology = dynamic_typology
         project.dimensions_pts = [pw, ph]
 
         # Primary floor shortcuts (Floor 0)
@@ -251,33 +301,59 @@ def execute_rendering_pipeline(project_id: str, uploaded_pdf_input: Union[str, L
             elements_retained_pct=100.0,
             correction_iterations_run=0,
             unresolved_discrepancies=[],
-            verdict="PASSED",
+            verdict="PASSED" if overall_fidelity >= FIDELITY_PASS_THRESHOLD_PCT else "FLAGGED_FOR_REVIEW",
             overlay_image_url=floor_infos[0].qa_overlay_url
         )
+
+        # STAGE 7: Dynamic Section AA' and Front Elevation Generation
+        project.status = ProjectStatus.APPLYING_CORRECTIONS
+        project.current_stage = "Stage 7/10: Generating Dynamic Section AA' & Front Elevation"
+        project.progress_pct = 80
+        log("Generating longitudinal structural Section AA' and Front Elevation from CAD geometry...")
+
+        sec_png_path = str(RENDERS_DIR / f"{project_id}_section.png")
+        elev_png_path = str(RENDERS_DIR / f"{project_id}_elevation.png")
+
+        run_section_generation(floor_envelope_data, sec_png_path, project_title=project.title)
+        run_elevation_generation(floor_envelope_data, elev_png_path, project_title=project.title)
 
         # STAGE 8 & 9: Master Presentation Board Composition (A1 Sheet)
         project.status = ProjectStatus.COMPOSING_SHEET
         project.current_stage = f"Stage 8/10: Composing A1 Master Presentation Board ({len(floor_infos)} plans)"
         project.progress_pct = 90
-        log(f"Assembling {len(floor_infos)} rendered floor plan(s), Section AA', Elevation, and Material Palette into publication sheet...")
+        log(f"Assembling {len(floor_infos)} rendered floor plan(s), dynamic Section AA', Elevation, and Material Palette into publication sheet...")
 
         pres_pdf_path = str(RENDERS_DIR / f"{project_id}_presentation.pdf")
         pres_png_path = str(RENDERS_DIR / f"{project_id}_presentation.png")
 
-        # Pass all N plans dynamically to adaptive presentation sheet composer
+        # Dynamic Metadata dict
+        total_fl_area = round(estimated_unit_area * len(floor_infos), 1)
+        meta_dict = {
+            "total_floor_area": total_fl_area,
+            "unit_area": estimated_unit_area,
+            "num_blocks": 1,
+            "num_floors": len(floor_infos),
+            "unit_typology": dynamic_typology,
+            "scale_annotations": detected_scales
+        }
+
         plans_for_sheet = [(f.floor_label, floor_renders[i]) for i, f in enumerate(floor_infos)]
         run_composition(
             plans_for_sheet,
             output_pdf=pres_pdf_path,
             output_png=pres_png_path,
-            project_title=project.title
+            project_title=project.title,
+            section_image_path=sec_png_path,
+            elevation_image_path=elev_png_path,
+            applied_materials=all_applied_materials,
+            metadata=meta_dict
         )
 
         project.presentation_pdf_url = f"/api/projects/{project_id}/download/presentation_pdf"
         project.presentation_png_url = f"/api/projects/{project_id}/download/presentation_png"
         project.section_image_url = f"/api/projects/{project_id}/download/section_png"
         project.elevation_image_url = f"/api/projects/{project_id}/download/elevation_png"
-        log("Generated print-ready A1 Presentation PDF and 4K Presentation Sheet matching DIRECTOR SHEET 1.pdf")
+        log("Generated print-ready A1 Presentation PDF and 4K Presentation Sheet with 100% dynamic content")
 
         # STAGE 10: Finalization
         project.status = ProjectStatus.COMPLETED

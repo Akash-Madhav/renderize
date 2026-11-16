@@ -84,3 +84,5 @@ desktop.ini
 *.log
 scratch/
 tmp/
+samples/output_images/
+samples/rendered/

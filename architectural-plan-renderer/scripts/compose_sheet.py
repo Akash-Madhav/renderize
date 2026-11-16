@@ -2,40 +2,45 @@
 """
 compose_sheet.py - Stage 6: Adaptive Multi-Drawing Presentation Sheet Composer
 
-Assembles arbitrary N rendered floor plans, section drawings, front elevations,
-title blocks, project metadata, and scale information into an A1 presentation sheet PDF
-matching the reference layout of DIRECTOR SHEET 1.pdf.
+Assembles arbitrary N rendered floor plans, dynamically generated section drawings,
+front elevations, title blocks, real project metadata, and authentic material palettes
+into an A1 presentation sheet PDF matching publication standards.
 """
 
 import argparse
 import os
 import sys
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Optional, Dict, Any
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 import pymupdf
 
 
-def compose_presentation_sheet(plans_input: Union[List, str],
-                               first_plan_path: str = None,
-                               second_plan_path: str = None,
-                               output_pdf_path: str = None,
-                               output_png_path: str = None,
-                               sheet_size: Tuple[int, int] = (9933, 7016),
-                               project_title: str = "DIRECTOR"):
+def compose_presentation_sheet(
+    plans_input: Union[List, str],
+    first_plan_path: str = None,
+    second_plan_path: str = None,
+    output_pdf_path: str = None,
+    output_png_path: str = None,
+    sheet_size: Tuple[int, int] = (9933, 7016),
+    project_title: str = "ARCHITECTURAL RESIDENCE",
+    section_image_path: Optional[str] = None,
+    elevation_image_path: Optional[str] = None,
+    roof_image_path: Optional[str] = None,
+    applied_materials: Optional[List[Dict[str, Any]]] = None,
+    metadata: Optional[Dict[str, Any]] = None
+):
     """
     Composes standard A1 presentation board (9933 x 7016 px at ~300 DPI).
-    Supports arbitrary N floor plans (1, 2, 3, 4, 5+ floors) with dynamic grid scaling.
+    Supports arbitrary N floor plans (1, 2, 3, 4, 5+ floors) with dynamic grid scaling
+    and fully dynamic section, elevation, materials, and metadata blocks.
     """
-    # Normalize input: can be a list of paths or 3 discrete paths for backwards compatibility
+    # Normalize input
     if isinstance(plans_input, list):
         plans_list = plans_input
         pdf_out = first_plan_path if output_pdf_path is None else output_pdf_path
         png_out = second_plan_path if output_png_path is None else output_png_path
     else:
-        # Legacy positional invocation
-        plans_list = [
-            ("UNIT PLAN - GROUND FLOOR", plans_input),
-        ]
+        plans_list = [("UNIT PLAN - GROUND FLOOR", plans_input)]
         if first_plan_path and os.path.exists(first_plan_path):
             plans_list.append(("UNIT PLAN - FIRST FLOOR", first_plan_path))
         if second_plan_path and os.path.exists(second_plan_path):
@@ -43,10 +48,10 @@ def compose_presentation_sheet(plans_input: Union[List, str],
         pdf_out = output_pdf_path
         png_out = output_png_path
 
-    # Ensure plans_list is formatted as [(label, path), ...]
+    # Format plans as [(label, path), ...]
     formatted_plans = []
     for idx, item in enumerate(plans_list):
-        if isinstance(item, tuple) or isinstance(item, list):
+        if isinstance(item, (tuple, list)):
             lbl, pth = item[0], item[1]
         else:
             pth = item
@@ -74,18 +79,20 @@ def compose_presentation_sheet(plans_input: Union[List, str],
     margin = 80
     draw.rectangle([margin, margin, sheet_size[0] - margin, sheet_size[1] - margin], outline="#24282B", width=4)
 
-    # Fonts
+    # Architectural Typography
     try:
         font_title = ImageFont.truetype("georgia.ttf", 160)
         font_sub = ImageFont.truetype("arialbd.ttf", 64)
         font_info = ImageFont.truetype("arialbd.ttf", 44)
+        font_dim = ImageFont.truetype("arial.ttf", 36)
     except:
         font_title = ImageFont.load_default()
         font_sub = ImageFont.load_default()
         font_info = ImageFont.load_default()
+        font_dim = ImageFont.load_default()
 
     # 1. Master Title
-    draw.text((sheet_size[0] // 2 - 400, 180), project_title, fill="#24282B", font=font_title)
+    draw.text((sheet_size[0] // 2 - 450, 180), project_title.upper(), fill="#24282B", font=font_title)
 
     # North arrow badge at top right
     draw.ellipse([sheet_size[0] - 500, 200, sheet_size[0] - 400, 300], outline="#24282B", width=4)
@@ -95,12 +102,11 @@ def compose_presentation_sheet(plans_input: Union[List, str],
 
     y_pos = 500
 
-    # 2. Dynamic Floor Plan Layout
+    # 2. Dynamic Floor Plan Layout Grid
     if num_plans == 1:
         # Single Plan Layout: Prominent central unit plan
         lbl, path = formatted_plans[0]
         img = Image.open(path).convert("RGB")
-        # Crop whitespace to tightly focus on plan
         gray = ImageOps.invert(img.convert("L"))
         bbox = gray.getbbox()
         img_cropped = img.crop(bbox) if bbox else img
@@ -110,7 +116,7 @@ def compose_presentation_sheet(plans_input: Union[List, str],
         plan_h = 2400
 
     elif num_plans == 2:
-        # Dual Plan Layout: Two large columns
+        # Dual Plan Layout
         col_w = 4500
         plan_h = 2300
         for i, (lbl, path) in enumerate(formatted_plans):
@@ -124,7 +130,7 @@ def compose_presentation_sheet(plans_input: Union[List, str],
             draw.text((x_pos + 400, y_pos + 40), lbl, fill="#24282B", font=font_sub)
 
     elif num_plans == 3:
-        # 3-Floor Layout: Exact Director Sheet 1 Tri-Column Register
+        # Tri-Column Layout (Matching Director Reference)
         plan_w = 3000
         plan_h = 2300
         positions = [200, 3450, 6700]
@@ -139,7 +145,7 @@ def compose_presentation_sheet(plans_input: Union[List, str],
             draw.text((x_pos + 300, y_pos + 40), lbl, fill="#24282B", font=font_sub)
 
     else:
-        # 4+ Plans: Adaptive Multi-Column Register
+        # Adaptive Multi-Column Register for 4+ plans
         col_w = (sheet_size[0] - 600) // min(num_plans, 4)
         plan_h = 2200
         for i, (lbl, path) in enumerate(formatted_plans[:4]):
@@ -152,70 +158,108 @@ def compose_presentation_sheet(plans_input: Union[List, str],
             board.paste(img_cropped, (x_pos, y_pos + 120))
             draw.text((x_pos + 100, y_pos + 40), lbl, fill="#24282B", font=font_sub)
 
-    # 3. Section AA' in lower left
+    # 3. Dynamic Section AA' in lower left
     draw.text((400, y_pos + plan_h + 100), "SECTION AA'", fill="#24282B", font=font_sub)
     section_box = [200, y_pos + plan_h + 200, 5300, sheet_size[1] - 800]
-    section_img_path = r"c:\Users\akash\renderize\samples\output_images\output_section.png"
-    if os.path.exists(section_img_path):
-        sec_img = Image.open(section_img_path).convert("RGB")
-        target_w = section_box[2] - section_box[0]
-        target_h = section_box[3] - section_box[1]
+    target_w = section_box[2] - section_box[0]
+    target_h = section_box[3] - section_box[1]
+
+    if section_image_path and os.path.exists(section_image_path):
+        sec_img = Image.open(section_image_path).convert("RGB")
         sec_img.thumbnail((target_w, target_h), Image.Resampling.LANCZOS)
-        board.paste(sec_img, (section_box[0], section_box[1]))
+        # Center inside target box
+        sec_x = section_box[0] + (target_w - sec_img.width) // 2
+        sec_y = section_box[1] + (target_h - sec_img.height) // 2
+        board.paste(sec_img, (sec_x, sec_y))
         draw.rectangle(section_box, outline="#24282B", width=3)
     else:
         draw.rectangle(section_box, outline="#A0A5A8", width=3, fill="#FFFFFF")
-        draw.text((2200, y_pos + plan_h + 800), "[ SECTION AA' - ELEVATIONAL VIEW ]", fill="#70757A", font=font_sub)
+        draw.text((section_box[0] + 400, section_box[1] + target_h // 2),
+                  "[ SECTION AA' - LONGITUDINAL STRUCTURAL CUT ]", fill="#70757A", font=font_sub)
 
-    # 4. Front Elevation Drawing in middle lower right
+    # 4. Dynamic Front Elevation Drawing in middle lower right
     draw.text((5600, y_pos + plan_h + 100), "FRONT ELEVATION & CLUSTER PROFILE", fill="#24282B", font=font_sub)
     elev_box = [5500, y_pos + plan_h + 200, 8300, y_pos + plan_h + 1900]
-    elev_img_path = r"c:\Users\akash\renderize\samples\output_images\output_elevation.png"
-    if os.path.exists(elev_img_path):
-        elev_img = Image.open(elev_img_path).convert("RGB")
-        target_ew = elev_box[2] - elev_box[0]
-        target_eh = elev_box[3] - elev_box[1]
-        elev_img.thumbnail((target_ew, target_eh), Image.Resampling.LANCZOS)
-        board.paste(elev_img, (elev_box[0], elev_box[1]))
-        draw.rectangle(elev_box, outline="#24282B", width=3)
+    target_ew = elev_box[2] - elev_box[0]
+    target_eh = elev_box[3] - elev_box[1]
 
-    # 5. Color Palette Swatches (Right side)
+    if elevation_image_path and os.path.exists(elevation_image_path):
+        elev_img = Image.open(elevation_image_path).convert("RGB")
+        elev_img.thumbnail((target_ew, target_eh), Image.Resampling.LANCZOS)
+        elev_x = elev_box[0] + (target_ew - elev_img.width) // 2
+        elev_y = elev_box[1] + (target_eh - elev_img.height) // 2
+        board.paste(elev_img, (elev_x, elev_y))
+        draw.rectangle(elev_box, outline="#24282B", width=3)
+    else:
+        draw.rectangle(elev_box, outline="#A0A5A8", width=3, fill="#FFFFFF")
+        draw.text((elev_box[0] + 200, elev_box[1] + target_eh // 2),
+                  "[ FRONT ELEVATION PROFILE ]", fill="#70757A", font=font_sub)
+
+    # 5. Dynamic Colour Palette Swatches (Right side)
     draw.text((8500, y_pos + plan_h + 100), "COLOUR PALETTE", fill="#24282B", font=font_sub)
-    swatches = [
-        ("#8B5A2B", "Oak Wood"),
-        ("#E0E5DF", "Italian Marble"),
-        ("#8B9E7A", "Sage Quartzite"),
-        ("#363C40", "Charcoal Slate"),
-        ("#D0C2B2", "Terrazzo"),
-        ("#B8BCB5", "Basalt Paver")
-    ]
+
+    # Use only materials actually applied during rendering
+    swatches_to_display = []
+    if applied_materials:
+        seen = set()
+        for mat in applied_materials:
+            color = mat.get("color", "#8B5A2B")
+            name = mat.get("name", "Architectural Surface")
+            if name not in seen:
+                seen.add(name)
+                swatches_to_display.append((color, name))
+
+    # Fallback to standard palette if no materials specified
+    if not swatches_to_display:
+        swatches_to_display = [
+            ("#8B5A2B", "Oak Wood"),
+            ("#E0E5DF", "Italian Marble"),
+            ("#8B9E7A", "Sage Quartzite"),
+            ("#363C40", "Charcoal Slate"),
+            ("#D0C2B2", "Terrazzo"),
+            ("#B8BCB5", "Basalt Paver")
+        ]
+
     sw_y = y_pos + plan_h + 220
-    for idx, (color, name) in enumerate(swatches):
+    for idx, (color, name) in enumerate(swatches_to_display[:8]):
         cx = 8550 + (idx % 2) * 550
         cy = sw_y + (idx // 2) * 260
         draw.ellipse([cx, cy, cx + 160, cy + 160], fill=color, outline="#24282B", width=3)
         draw.text((cx - 10, cy + 175), name, fill="#24282B", font=font_info)
 
-    # 6. Project Metadata Title Block (Bottom)
+    # 6. Dynamic Project Metadata Title Block (Bottom)
     draw.line([margin, sheet_size[1] - 700, sheet_size[0] - margin, sheet_size[1] - 700], fill="#24282B", width=2)
 
-    total_area_val = 350 * max(1, num_plans)
+    meta = metadata or {}
+    total_area = meta.get("total_floor_area", 320 * max(1, num_plans))
+    unit_area = meta.get("unit_area", 320)
+    num_blocks = meta.get("num_blocks", 1)
+    num_fl = meta.get("num_floors", max(1, num_plans))
+    typology = meta.get("unit_typology", "RESIDENTIAL ARCHITECTURAL SPECIFICATION")
+
     info_left = [
-        f"TOTAL FLOOR AREA : {total_area_val} SQ.M",
-        f"UNIT AREA : 350 SQ.M",
-        f"NO. OF BLOCKS : 1",
-        f"NO. OF FLOORS : {max(1, num_plans)}",
-        f"UNIT TYPOLOGY : 4 BHK + LIBRARY + OFFICE + GUEST"
+        f"TOTAL FLOOR AREA : {total_area:.1f} SQ.M" if isinstance(total_area, float) else f"TOTAL FLOOR AREA : {total_area} SQ.M",
+        f"UNIT AREA : {unit_area:.1f} SQ.M" if isinstance(unit_area, float) else f"UNIT AREA : {unit_area} SQ.M",
+        f"NO. OF BLOCKS : {num_blocks}",
+        f"NO. OF FLOORS : {num_fl}",
+        f"UNIT TYPOLOGY : {typology}"
     ]
     for i, line in enumerate(info_left):
         draw.text((200, sheet_size[1] - 640 + i * 80), line, fill="#24282B", font=font_info)
 
     draw.text((sheet_size[0] // 2 - 300, sheet_size[1] - 400), "ALL DIMENSIONS ARE IN METRES", fill="#24282B", font=font_info)
 
+    scale_notes = meta.get("scale_annotations", [])
+    scale_str_unit = "1:50"
+    for s in scale_notes:
+        if "1:" in s:
+            scale_str_unit = s
+            break
+
     info_right = [
         "SCALE",
         "ROOF PLAN & CLUSTER PLAN :- 1:100",
-        "UNIT PLAN :- 1:50",
+        f"UNIT PLAN :- {scale_str_unit}",
         "SECTION :- 1:50",
         "ELEVATIONS :- 1:75"
     ]
@@ -252,9 +296,19 @@ def main():
     parser.add_argument("--plans", nargs="+", required=True, help="List of floor plan rendered PNG paths")
     parser.add_argument("--output-pdf", required=True, help="Output A1 PDF path")
     parser.add_argument("--output-png", default=None, help="Output A1 PNG path")
+    parser.add_argument("--section", default=None, help="Section image path")
+    parser.add_argument("--elevation", default=None, help="Elevation image path")
+    parser.add_argument("--title", default="RESIDENCE", help="Project title")
 
     args = parser.parse_args()
-    compose_presentation_sheet(args.plans, output_pdf_path=args.output_pdf, output_png_path=args.output_png)
+    compose_presentation_sheet(
+        args.plans,
+        output_pdf_path=args.output_pdf,
+        output_png_path=args.output_png,
+        section_image_path=args.section,
+        elevation_image_path=args.elevation,
+        project_title=args.title
+    )
 
 
 if __name__ == "__main__":

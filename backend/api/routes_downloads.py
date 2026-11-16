@@ -42,8 +42,8 @@ async def download_deliverable(project_id: str, format_type: str):
     if not qa_path.exists():
         qa_path = RENDERS_DIR / f"{project_id}_rendered_QA_OVERLAY.png"
 
-    sec_path = SAMPLES_DIR / "output_images" / "output_section.png"
-    elev_path = SAMPLES_DIR / "output_images" / "output_elevation.png"
+    sec_path = RENDERS_DIR / f"{project_id}_section.png"
+    elev_path = RENDERS_DIR / f"{project_id}_elevation.png"
 
     file_mapping = {
         "original_preview": (orig_path, "image/png"),
